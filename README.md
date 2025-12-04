@@ -5,38 +5,41 @@ This is a React-based Retrieval Augmented Generation (RAG) demonstration interfa
 
 Users can upload documents to a synchronized Google Drive folder, view the library, and chat with an AI agent that provides grounded answers with citations linking back to the source documents.
 
-## Features
+## Key Features & Recent Enhancements
 
-### 1. Authentication
-*   **Mock Authentication**: A simple "Sign In" toggle for demonstration purposes.
-*   **Secured Views**: Restricts access to Upload, Chat, and Library views until signed in.
+### 1. Rich Text Chat (Markdown)
+*   **Markdown Rendering**: The chat interface now supports full Markdown formatting. Bold text (`**text**`), bullet points, and numbered lists are rendered cleanly using the `marked` library and custom CSS typography.
+*   **Hybrid Rendering**: The application intelligently injects interactive citation buttons into the rendered Markdown HTML, ensuring formatting and functionality coexist without breaking.
 
-### 2. Upload to Knowledge Base
-*   **Workflow**: Directs users to a specific Google Drive folder.
-*   **Sync**: Relies on an external background scheduler (e.g., n8n) to detect new files in the folder and index them into the Gemini File Search store.
+### 2. Intelligent Citation Handling
+The application implements a sophisticated logic to handle references returned by the LLM:
+*   **Inline Citations**: Preserves all citation markers in the text (e.g., `[1]`, `[5]`). Even if multiple markers refer to the same document, they remain clickable and distinct in the flow of conversation.
+*   **Deduplicated Source List**: The "Sources" footer at the bottom of the message is automatically filtered. It displays each unique document only once, keeping the interface clean even if the text references the same file multiple times.
+*   **Multilingual Support**: Automatically detects and parses headers like "References:", "Sources:", or "Références :" (French).
+*   **Smart Linking**: Constructs search-based URLs (`https://drive.google.com/drive/search?q=...`) to reliably locate files in the Google Drive folder, solving issues where the LLM might hallucinate direct file IDs.
 
-### 3. Chat with Documents
-*   **n8n Integration**: Connects to an n8n webhook to process user queries.
-*   **Citations**:
-    *   Parses raw text responses to extract references (supports English headers like "References" and French like "Références").
-    *   Renders inline citation markers (e.g., `[1]`) as interactive buttons.
-    *   Displays a structured "Sources" list at the bottom of the message.
-*   **Robust Linking**: Since the AI may not know the exact public URL of a private Drive file, the application constructs **Smart Search Links** (`https://drive.google.com/drive/search?q=...`) to reliably locate the specific file within the designated folder.
+### 3. Authentication
+*   **Mock Authentication**: A simple "Sign In" toggle is implemented for demonstration purposes to unlock the UI.
 
-### 4. Document Library
-*   **Mock View**: Displays a list of files currently available in the knowledge base (simulating the contents of the Drive folder).
-*   **Direct Access**: Provides quick links to open the Google Drive folder.
+### 4. Upload Workflow
+*   **Direct Drive Access**: To ensure reliability and simplicity, the "Upload" view guides users to open the specific **Google Drive folder** directly.
+*   **Background Sync**: An external n8n scheduler watches this folder and handles the indexing to Gemini File Search automatically.
+
+### 5. Document Library
+*   **Mock View**: Displays a list of files currently available in the knowledge base.
+*   **Sync Simulation**: Includes a "Refresh" button to simulate fetching the latest file list from the backend.
 
 ## Technical Architecture
 
-*   **Frontend**: React 19 (Hooks, Functional Components)
-*   **Styling**: Tailwind CSS
+*   **Frontend**: React 19
+*   **Styling**: Tailwind CSS + Custom Markdown CSS
+*   **Markdown Parser**: `marked` library
 *   **Icons**: Lucide React
-*   **Build Tool**: Vite / ESBuild (implied by environment)
+*   **Backend**: n8n Workflows (Webhooks)
 
 ### Configuration Constants
 
-To adapt this project for your own infrastructure, update the following constants in the code:
+To adapt this project for your own infrastructure, update the following constants:
 
 #### Google Drive Folder
 Located in `components/UploadView.tsx`, `components/ChatView.tsx`, and `components/LibraryView.tsx`:
@@ -50,31 +53,17 @@ Located in `components/ChatView.tsx`:
 const response = await fetch('https://anneroyam.app.n8n.cloud/webhook/chat', { ... });
 ```
 
-## Usage Flows
+## Setup & Usage
 
-### Chat Flow
-1.  **Input**: User types a question.
-2.  **Request**: App sends `POST` request to n8n webhook with JSON payload:
-    ```json
-    {
-      "message": "User question",
-      "sessionId": "unique-session-id"
-    }
-    ```
-3.  **Processing**: n8n workflow queries Gemini File Search.
-4.  **Response**: n8n returns JSON with `answer` and optional `citations`.
-5.  **Rendering**: App parses the answer, formats citations, and generates clickable Drive links.
+1.  **Configure n8n**: Ensure your n8n workflow accepts a `POST` request with `{ "message": "...", "sessionId": "..." }` and returns a JSON with `{ "answer": "...", "citations": [...] }`.
+2.  **Configure Drive**: Share the Google Drive folder so that the generated search links work for your users.
+3.  **Run Application**: The app expects a standard React/Vite environment.
 
-### Upload Flow
-1.  User navigates to the "Upload Documents" tab.
-2.  User clicks "Open Google Drive Folder".
-3.  User uploads PDF/DOCX/TXT files directly to Google Drive.
-4.  External n8n scheduler picks up files (every ~10 mins) and syncs them to Gemini.
-
-## Citation Handling
-The application features a robust regex engine in `ChatView.tsx` to handle various citation formats generated by LLMs:
-*   Standard: `[1] Document Name`
-*   Inverted: `Document Name [1]`
-*   Headers: `References:`, `Sources:`, `Références :` (French)
-
-It ensures that citation numbers in the text (e.g., `...according to the report [1].`) align perfectly with the source list.
+## Logic Deep Dive: Citations
+The `ChatView.tsx` component performs the following steps when a message is received:
+1.  **Extraction**: Regex parsing extracts citations from the raw text (if structured JSON isn't provided).
+2.  **Normalization**: URLs are cleaned, and filenames are processed to create robust search queries.
+3.  **State Update**: The full list of citations is attached to the message object.
+4.  **Rendering**:
+    *   `renderStyledText`: Parses Markdown -> Injects Buttons for every ID found in the text.
+    *   `Sources Footer`: Iterates through the citations, creates a `Map` by title/URL to remove duplicates, and renders the unique list.
