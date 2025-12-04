@@ -1,0 +1,5 @@
+{
+  "name": "Gemini RAG Demo",
+  "description": "A RAG (Retrieval Augmented Generation) demo interface allowing users to upload documents to a knowledge base and chat with them.",
+  "requestFramePermissions": []
+}
