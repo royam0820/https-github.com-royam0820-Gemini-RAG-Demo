@@ -58,6 +58,19 @@ const response = await fetch('https://anneroyam.app.n8n.cloud/webhook/chat', { .
 1.  **Configure n8n**: Ensure your n8n workflow accepts a `POST` request with `{ "message": "...", "sessionId": "..." }` and returns a JSON with `{ "answer": "...", "citations": [...] }`.
 2.  **Configure Drive**: Share the Google Drive folder so that the generated search links work for your users.
 3.  **Run Application**: The app expects a standard React/Vite environment.
+4.  Modify the component ChatView.tsx to identify the n8n webhook as follows
+5.  try {
+  const response = await fetch(process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': process.env.NEXT_PUBLIC_N8N_API_KEY
+    },
+    body: JSON.stringify({ 
+      message: userMsg.text,
+      sessionId: sessionIdRef.current
+    })
+  });
 
 ## Logic Deep Dive: Citations
 The `ChatView.tsx` component performs the following steps when a message is received:
